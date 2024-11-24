@@ -1,11 +1,11 @@
-const jsonwebtoken = require("jsonwebtoken");
-const bcryptjs = require("bcryptjs");
-const crypto = require("crypto");
+const jsonwebtoken = require('jsonwebtoken');
+const bcryptjs = require('bcryptjs');
+const crypto = require('crypto');
 
-const User = require("../models/User");
-const catchAsync = require("../utils/catchAsync");
-const AppError = require("../utils/AppError");
-const { sendEmail } = require("../utils/email");
+const User = require('../models/User');
+const catchAsync = require('../utils/catchAsync');
+const AppError = require('../utils/AppError');
+const { sendEmail } = require('../utils/email');
 
 const genToken = (id) => {
   return jsonwebtoken.sign({ id }, process.env.JWT_SECRET, {
@@ -27,7 +27,7 @@ class AuthController {
     const user = await User.create(req.body);
     const token = genToken(user._id);
     return res.status(201).json({
-      status: "Success",
+      status: 'Success',
       data: {
         token,
         user,
@@ -38,17 +38,17 @@ class AuthController {
     try {
       const { email, password } = req.body;
       if (!email || !password) {
-        return next(new AppError("Please provide email and password", 500));
+        return next(new AppError('Please provide email and password', 500));
       }
       const user = await User.findOne({ email: req.body.email }).select(
-        "+password"
+        '+password'
       );
       if (!user || !(await correctPassword(password, user.password))) {
-        return next(new AppError("Incorrect email or password", 401));
+        return next(new AppError('Incorrect email or password', 401));
       }
       const token = genToken(user._id);
       return res.status(200).json({
-        status: "Success",
+        status: 'Success',
         data: {
           token,
           user,
@@ -61,7 +61,7 @@ class AuthController {
     const { email } = req.body;
     // 1 Get user based on POST email
     const user = await User.findOne({ email });
-    if (!user) return next(new App("There is no user with email address", 404));
+    if (!user) return next(new App('There is no user with email address', 404));
 
     // 2 Generate the random reset token
     const resetToken = user.createPasswordResetToken();
@@ -69,33 +69,33 @@ class AuthController {
 
     // 3 Send it to user's email
     const resetURL = `${req.protocol}://${req.get(
-      "host"
+      'host'
     )}/v1/users/reset-password/${resetToken}`;
     const message = `Forgot your password? Submit a PATCH request with your new password and passwordConfirm to: ${resetURL}.\nIf you didn't forget your password, please ignore this email!`;
     try {
       const mailOptions = {
         to: user.email,
-        subject: "Your password reset token (valid for 10 min)",
+        subject: 'Your password reset token (valid for 10 min)',
         text: message,
       };
       await sendEmail(mailOptions);
       return res.status(200).json({
-        status: "Success",
-        message: "Token sent to email",
+        status: 'Success',
+        message: 'Token sent to email',
       });
     } catch (error) {
       user.passwordResetToken = undefined;
       user.passwordResetExpires = undefined;
       await user.save({ validateBeforeSave: false });
-      return next(new AppError("There was an error sending the email", 500));
+      return next(new AppError('There was an error sending the email', 500));
     }
   });
   resetPassword = catchAsync(async (req, res, next) => {
     // 1 Get user based on the token
     const hashedToken = crypto
-      .createHash("sha256")
+      .createHash('sha256')
       .update(req.params.token)
-      .digest("hex");
+      .digest('hex');
 
     // 2 If token has not expired, and there is user, set the new password
     const user = await User.findOne({
@@ -103,7 +103,7 @@ class AuthController {
       passwordResetExpires: { $gt: Date.now() },
     });
     if (!user) {
-      return next(new AppError("Token is invalid or has expired", 400));
+      return next(new AppError('Token is invalid or has expired', 400));
     }
 
     // 3 Update changedPasswordAt property for the given user
@@ -114,7 +114,7 @@ class AuthController {
     await user.save();
     const token = genToken(user._id);
     return res.status(200).json({
-      status: "Success",
+      status: 'Success',
       data: {
         token,
       },
@@ -122,11 +122,11 @@ class AuthController {
   });
   updatePassword = catchAsync(async (req, res, next) => {
     // 1 Get user from collection
-    const user = await User.findOne({ _id: req.user.id }).select("+password");
+    const user = await User.findOne({ _id: req.user.id }).select('+password');
 
     // 2 Check if POSTed current password is correct
     if (!(await correctPassword(req.body.currentPassword, user.password))) {
-      return next(new AppError("Your current password is wrong", 401));
+      return next(new AppError('Your current password is wrong', 401));
     }
     // 3 If so, update password
     user.password = req.body.password;
@@ -137,7 +137,7 @@ class AuthController {
     // 4 Log user in, send JWT
     const token = genToken(user._id);
     return res.status(200).json({
-      status: "Success",
+      status: 'Success',
       data: {
         token,
       },
@@ -145,21 +145,22 @@ class AuthController {
   });
 
   updateProfile = catchAsync(async (req, res, next) => {
-    // 1
+    // 1 Create error if user POSTs password data
     const { password, passwordConfirm } = req.body;
     if (password || passwordConfirm) {
-      return next(new AppError("", 400));
+      return next(new AppError('', 400));
     }
 
-    // 2
-    const filteredBody = filterObj(req.body, ["name", "email"]);
+    // 2 Update user document
+    const filteredBody = filterObj(req.body, ['name', 'email']);
+    if (req.file) filteredBody.photo = req.file.filename;
     const user = await User.findByIdAndUpdate(req.user.id, filteredBody, {
       new: true,
       runValidators: true,
     });
 
     return res.status(200).json({
-      message: "Success",
+      message: 'Success',
       data: {
         user,
       },
@@ -170,7 +171,7 @@ class AuthController {
     await User.findByIdAndUpdate(req.user.id, { active: false });
 
     return res.status(204).json({
-      status: "Success",
+      status: 'Success',
       data: true,
     });
   });
